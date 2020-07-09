@@ -19,6 +19,12 @@ class ChannelsViewController: UIViewController {
   var channelDecks = [Section]()
   var filteredDecks: [Section]?
   weak var delegate: ChannelsViewControllerDelegate?
+
+  var footerFrame = UIView()
+  var footerLabel = UILabel()
+  var indicator = UIActivityIndicatorView()
+  var dispatchGroup = DispatchGroup()
+  var indicatorShown = false
   
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
@@ -68,6 +74,34 @@ class ChannelsViewController: UIViewController {
     }
   }
   
+  func showActivityIndicator() {
+    footerFrame = UIView(frame: CGRect(x: 0, y: view.frame.midY - 25, width: 250, height: 50))
+    footerFrame.center.x = view.center.x
+
+    footerLabel = UILabel(frame: CGRect(x: 0, y: 0, width: 200, height: 50))
+    footerLabel.textColor = UIColor.systemGray
+    footerLabel.text = "Searching for Channels..."
+
+    indicator.frame = CGRect(x: 200, y: 0, width: 50, height: 50)
+    indicator.startAnimating()
+
+    footerFrame.addSubview(footerLabel)
+    footerFrame.addSubview(indicator)
+
+    tableView.tableFooterView = footerFrame
+    indicatorShown = true
+  }
+
+  func hideActivityIndicator() {
+    tableView.tableFooterView = nil
+    indicatorShown = false
+    self.tableView.reloadData()
+  }
+
+  func leaveDispatchGroup() {
+    dispatchGroup.leave()
+  }
+  
 }
 
 private extension ChannelsViewController {
@@ -111,6 +145,7 @@ extension ChannelsViewController: UITableViewDataSource {
 
 protocol ChannelsViewControllerDelegate: class {
   func selectedChannel(deck: Item)
+  func searchOnTyping(term: String)
 }
 
 extension ChannelsViewController: UITableViewDelegate {
@@ -125,11 +160,19 @@ extension ChannelsViewController: UITableViewDelegate {
 extension ChannelsViewController: UISearchResultsUpdating {
   func updateSearchResults(for searchController: UISearchController) {
     if let searchText = searchController.searchBar.text, !searchText.isEmpty {
-      filteredDecks = channelDecks.map {section in
-        let s = section.copy() as! Section
-        let items = section.items.filter{($0.title?.lowercased().contains(searchText.lowercased()))!}
-        s.items = items
-        return s
+      showActivityIndicator()
+      dispatchGroup.enter()
+      delegate?.searchOnTyping(term: searchText)
+      
+      dispatchGroup.notify(queue: .main) {
+        self.filteredDecks = self.channelDecks.map {section in
+          let s = section.copy() as! Section
+          let items = section.items.filter{($0.title?.lowercased().contains(searchText.lowercased()))!}
+          s.items = items
+          return s
+        }
+        
+        self.hideActivityIndicator()
       }
     } else {
       filteredDecks = channelDecks

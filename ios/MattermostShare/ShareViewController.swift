@@ -22,6 +22,7 @@ class ShareViewController: SLComposeServiceViewController {
   private var publicURL: String?
   private var maxPostAlertShown: Bool = false
   private var tempContainerURL: URL? = UploadSessionManager.shared.tempContainerURL() as URL?
+  private var channelService = ChannelService()
   
   fileprivate var selectedChannel: Item?
   fileprivate var selectedTeam: Item?
@@ -37,6 +38,9 @@ class ShareViewController: SLComposeServiceViewController {
       sessionToken = store.getToken()
       serverURL = store.getServerUrl()
       maxMessageSize = Int(store.getMaxPostSize())
+    
+    channelService.sessionToken = sessionToken
+    channelService.serverURL = serverURL
   }
 
   // MARK: - Lifecycle methods
@@ -344,6 +348,19 @@ class ShareViewController: SLComposeServiceViewController {
     }
   }
   
+  func searchChannels(forTeamId: String, term: String) {
+    var currentChannel = store.getCurrentChannel() as NSDictionary?
+    if currentChannel?.object(forKey: "team_id") as! String != forTeamId {
+      currentChannel = store.getDefaultChannel(forTeamId) as NSDictionary?
+    }
+    
+    if (currentChannel == nil) {
+      channelService.searchChannels(on: forTeamId, withTerm: term) { channels in
+        
+      }
+    }
+  }
+  
   func getChannelsFromServerAndReload(forTeamId: String) {
     var currentChannel = store.getCurrentChannel() as NSDictionary?
     if currentChannel?.object(forKey: "team_id") as! String != forTeamId {
@@ -352,50 +369,25 @@ class ShareViewController: SLComposeServiceViewController {
     
     // If currentChannel is nil it means we don't have the channels for this team
     if (currentChannel == nil) {
-      let urlString = "\(serverURL!)/api/v4/users/me/teams/\(forTeamId)/channels"
-      let url = URL(string: urlString)
-      var request = URLRequest(url: url!)
-      let auth = "Bearer \(sessionToken!)" as String
-      request.setValue(auth, forHTTPHeaderField: "Authorization")
-      
-      let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-        guard let dataResponse = data,
-          error == nil else {
-            print(error?.localizedDescription ?? "Response Error")
-            return
-            
+      channelService.getTeamChannels(forTeamId: forTeamId) { channels in
+        let ent = self.store.getEntities(false)! as NSDictionary
+        let mutableEntities = ent.mutableCopy() as! NSMutableDictionary
+        let entitiesChannels = NSDictionary(dictionary: mutableEntities.object(forKey: "channels") as! NSMutableDictionary)
+          .object(forKey: "channels") as! NSMutableDictionary
+        
+        for item in channels {
+          let channel = item as! NSDictionary
+          entitiesChannels.setValue(channel, forKey: channel.object(forKey: "id") as! String)
         }
         
-        do{
-          //here dataResponse received from a network request
-          let jsonArray = try JSONSerialization.jsonObject(with: dataResponse, options: []) as! NSArray
-          let channels = jsonArray.filter {element in
-            let channel = element as! NSDictionary
-            let type = channel.object(forKey: "type") as! String
-            return type == "O" || type == "P"
-          }
-          let ent = self.store.getEntities(false)! as NSDictionary
-          let mutableEntities = ent.mutableCopy() as! NSMutableDictionary
-          let entitiesChannels = NSDictionary(dictionary: mutableEntities.object(forKey: "channels") as! NSMutableDictionary)
-            .object(forKey: "channels") as! NSMutableDictionary
-          
-          for item in channels {
-            let channel = item as! NSDictionary
-            entitiesChannels.setValue(channel, forKey: channel.object(forKey: "id") as! String)
-          }
-          
-          if let entitiesData: NSData = try? JSONSerialization.data(withJSONObject: ent, options: JSONSerialization.WritingOptions.prettyPrinted) as NSData {
-            let jsonString = String(data: entitiesData as Data, encoding: String.Encoding.utf8)! as String
-            self.store.updateEntities(jsonString)
-            self.store.getEntities(true)
-            self.reloadConfigurationItems()
-            self.view.setNeedsDisplay()
-          }
-        } catch let parsingError {
-          print("Error", parsingError)
+        if let entitiesData: NSData = try? JSONSerialization.data(withJSONObject: ent, options: JSONSerialization.WritingOptions.prettyPrinted) as NSData {
+          let jsonString = String(data: entitiesData as Data, encoding: String.Encoding.utf8)! as String
+          self.store.updateEntities(jsonString)
+          self.store.getEntities(true)
+          self.reloadConfigurationItems()
+          self.view.setNeedsDisplay()
         }
       }
-      task.resume()
     }
   }
   
@@ -543,5 +535,9 @@ extension ShareViewController: ChannelsViewControllerDelegate {
     selectedChannel = deck
     reloadConfigurationItems()
     popConfigurationViewController()
+  }
+  
+  func searchOnTyping(term: String) {
+    
   }
 }
