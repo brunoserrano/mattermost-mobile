@@ -12,6 +12,12 @@ class ChannelService: NSObject {
   var serverURL: String?
   var sessionToken: String?
   
+  var isSessionValid: Bool {
+    get {
+      return serverURL != nil && sessionToken != nil
+    }
+  }
+  
   func getTeamChannels(forTeamId: String, completionHandler: @escaping ([NSArray.Element]) -> Void) {
     let urlString = "\(serverURL!)/api/v4/users/me/teams/\(forTeamId)/channels"
     let url = URL(string: urlString)

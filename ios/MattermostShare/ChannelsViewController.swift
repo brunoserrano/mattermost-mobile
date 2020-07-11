@@ -18,6 +18,10 @@ class ChannelsViewController: UIViewController {
   var navbarTitle: String? = "Channels"
   var channelDecks = [Section]()
   var filteredDecks: [Section]?
+  var teamId: String?
+  private var sessionToken: String?
+  private var serverURL: String?
+  private var store = StoreManager.shared() as StoreManager
   weak var delegate: ChannelsViewControllerDelegate?
 
   var footerFrame = UIView()
@@ -25,6 +29,7 @@ class ChannelsViewController: UIViewController {
   var indicator = UIActivityIndicatorView()
   var dispatchGroup = DispatchGroup()
   var indicatorShown = false
+  private var channelService = ChannelService()
   
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
@@ -47,6 +52,12 @@ class ChannelsViewController: UIViewController {
     title = navbarTitle
     configureSearchBar()
     view.addSubview(tableView)
+    
+    sessionToken = store.getToken()
+    serverURL = store.getServerUrl()
+    
+    channelService.serverURL = serverURL
+    channelService.sessionToken = sessionToken
   }
  
   func configureSearchBar() {
@@ -100,6 +111,26 @@ class ChannelsViewController: UIViewController {
 
   func leaveDispatchGroup() {
     dispatchGroup.leave()
+  }
+  
+  func searchChannels(forTeamId: String, term: String) {
+    showActivityIndicator()
+    channelService.searchChannels(on: forTeamId, withTerm: term) { channels in
+      self.dispatchGroup.notify(queue: .main) {
+
+        let section = Section()
+        section.title = "Found Items"
+        section.items = (channels as! [NSDictionary]).map({ channel in
+          let item = Item()
+          item.id = channel.object(forKey: "id") as? String
+          item.title = channel.object(forKey: "display_name") as? String
+          return item
+        });
+        self.tableView.reloadData()
+      }
+      
+      self.dispatchGroup.leave()
+    }
   }
   
 }
@@ -160,19 +191,18 @@ extension ChannelsViewController: UITableViewDelegate {
 extension ChannelsViewController: UISearchResultsUpdating {
   func updateSearchResults(for searchController: UISearchController) {
     if let searchText = searchController.searchBar.text, !searchText.isEmpty {
-      showActivityIndicator()
-      dispatchGroup.enter()
-      delegate?.searchOnTyping(term: searchText)
+      self.filteredDecks = self.channelDecks.map {section in
+        let s = section.copy() as! Section
+        let items = section.items.filter{($0.title?.lowercased().contains(searchText.lowercased()))!}
+        s.items = items
+        return s
+      }
       
-      dispatchGroup.notify(queue: .main) {
-        self.filteredDecks = self.channelDecks.map {section in
-          let s = section.copy() as! Section
-          let items = section.items.filter{($0.title?.lowercased().contains(searchText.lowercased()))!}
-          s.items = items
-          return s
-        }
-        
-        self.hideActivityIndicator()
+      self.showActivityIndicator()
+      self.dispatchGroup.enter()
+      
+      if let teamId = self.teamId {
+        searchChannels(forTeamId: teamId, term: searchText)
       }
     } else {
       filteredDecks = channelDecks

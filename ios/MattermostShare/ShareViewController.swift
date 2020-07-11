@@ -32,15 +32,15 @@ class ShareViewController: SLComposeServiceViewController {
   private var maxMessageSize: Int = 0
   
   required init?(coder aDecoder: NSCoder) {
-      super.init(coder: aDecoder)
-  
-      entities = store.getEntities(true) as [AnyHashable:Any]?
-      sessionToken = store.getToken()
-      serverURL = store.getServerUrl()
-      maxMessageSize = Int(store.getMaxPostSize())
+    super.init(coder: aDecoder)
+
+    entities = store.getEntities(true) as [AnyHashable:Any]?
+    sessionToken = store.getToken()
+    serverURL = store.getServerUrl()
+    maxMessageSize = Int(store.getMaxPostSize())
     
-    channelService.sessionToken = sessionToken
     channelService.serverURL = serverURL
+    channelService.sessionToken = sessionToken
   }
 
   // MARK: - Lifecycle methods
@@ -94,7 +94,7 @@ class ShareViewController: SLComposeServiceViewController {
   }
 
   func loadData() {
-    if sessionToken == nil || serverURL == nil {
+    if !channelService.isSessionValid {
       showErrorMessage(title: "", message: "Authentication required: Please first login using the app.", VC: self)
     } else if store.getCurrentTeamId() == "" {
       showErrorMessage(title: "", message: "You must belong to a team before you can share files.", VC: self)
@@ -133,8 +133,7 @@ class ShareViewController: SLComposeServiceViewController {
       }
     }
 
-    return serverURL != nil &&
-      sessionToken != nil &&
+    return channelService.isSessionValid &&
       attachmentsCount() == attachments.count &&
       selectedTeam != nil &&
       selectedChannel != nil
@@ -153,6 +152,9 @@ class ShareViewController: SLComposeServiceViewController {
       self.message = contentText
     }
 
+    let sessionToken = store.getToken()
+    let serverURL = store.getServerUrl()
+    
     UploadManager.shared.uploadFiles(baseURL: serverURL!, token: sessionToken!, channelId: selectedChannel!.id!, message: message, attachments: attachments, callback: {
       // Inform the host that we're done, so it un-blocks its UI. Note: Alternatively you could call super's -didSelectPost, which will similarly complete the extension context.
       self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
@@ -203,6 +205,7 @@ class ShareViewController: SLComposeServiceViewController {
       channels.tapHandler = {
         self.channelsVC.channelDecks = channelDecks!
         self.channelsVC.navbarTitle = self.selectedTeam?.title
+        self.channelsVC.teamId = self.selectedTeam?.id
         self.channelsVC.delegate = self
         self.pushConfigurationViewController(self.channelsVC)
       }
@@ -345,19 +348,6 @@ class ShareViewController: SLComposeServiceViewController {
     }
     dispatchGroup.notify(queue: DispatchQueue.main) {
       self.validateContent()
-    }
-  }
-  
-  func searchChannels(forTeamId: String, term: String) {
-    var currentChannel = store.getCurrentChannel() as NSDictionary?
-    if currentChannel?.object(forKey: "team_id") as! String != forTeamId {
-      currentChannel = store.getDefaultChannel(forTeamId) as NSDictionary?
-    }
-    
-    if (currentChannel == nil) {
-      channelService.searchChannels(on: forTeamId, withTerm: term) { channels in
-        
-      }
     }
   }
   
