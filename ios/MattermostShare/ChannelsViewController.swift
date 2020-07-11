@@ -18,6 +18,7 @@ class ChannelsViewController: UIViewController {
   var navbarTitle: String? = "Channels"
   var channelDecks = [Section]()
   var filteredDecks: [Section]?
+  var foundItems = Section()
   var teamId: String?
   private var sessionToken: String?
   private var serverURL: String?
@@ -114,18 +115,24 @@ class ChannelsViewController: UIViewController {
   }
   
   func searchChannels(forTeamId: String, term: String) {
+    dispatchGroup.enter()
     showActivityIndicator()
+    
     channelService.searchChannels(on: forTeamId, withTerm: term) { channels in
       self.dispatchGroup.notify(queue: .main) {
-
-        let section = Section()
-        section.title = "Found Items"
-        section.items = (channels as! [NSDictionary]).map({ channel in
+        if self.filteredDecks?.contains(self.foundItems) == false {
+          self.foundItems.title = "Found Items"
+          self.filteredDecks?.append(self.foundItems)
+        }
+        
+        self.foundItems.items = (channels as! [NSDictionary]).map({ channel in
           let item = Item()
           item.id = channel.object(forKey: "id") as? String
           item.title = channel.object(forKey: "display_name") as? String
           return item
         });
+        
+        self.hideActivityIndicator()
         self.tableView.reloadData()
       }
       
@@ -197,9 +204,6 @@ extension ChannelsViewController: UISearchResultsUpdating {
         s.items = items
         return s
       }
-      
-      self.showActivityIndicator()
-      self.dispatchGroup.enter()
       
       if let teamId = self.teamId {
         searchChannels(forTeamId: teamId, term: searchText)
