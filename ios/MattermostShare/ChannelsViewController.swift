@@ -120,17 +120,40 @@ class ChannelsViewController: UIViewController {
     
     channelService.searchChannels(on: forTeamId, withTerm: term) { channels in
       self.dispatchGroup.notify(queue: .main) {
-        if self.filteredDecks?.contains(self.foundItems) == false {
-          self.foundItems.title = "Found Items"
-          self.filteredDecks?.append(self.foundItems)
+        let channelsDictionary = (channels as! [NSDictionary]).reduce(into: [String: NSDictionary]()) {
+          $0[$1.object(forKey: "id") as! String] = $1
         }
         
-        self.foundItems.items = (channels as! [NSDictionary]).map({ channel in
-          let item = Item()
-          item.id = channel.object(forKey: "id") as? String
-          item.title = channel.object(forKey: "display_name") as? String
-          return item
-        });
+        if let channelsInTeamBySections = self.store.getSectionsWithChannels(channelsDictionary, excludeArchived: true, forTeamId: self.teamId) {
+
+          var channelDecks = [Section]()
+          
+          channelDecks.append(Section.buildChannelSection(
+            channels: channelsInTeamBySections["public"] as? NSArray ?? NSArray(),
+            currentChannelId: "",
+            key: "public",
+            title: "Public Channels",
+            selectedChannelHandler: nil
+          ))
+
+          channelDecks.append(Section.buildChannelSection(
+            channels: channelsInTeamBySections["private"] as? NSArray ?? NSArray(),
+            currentChannelId: "",
+            key: "private",
+            title: "Private Channels",
+            selectedChannelHandler: nil
+          ))
+
+          channelDecks.append(Section.buildChannelSection(
+            channels: channelsInTeamBySections["direct"] as? NSArray ?? NSArray(),
+            currentChannelId: "",
+            key: "direct",
+            title: "Direct Channels",
+            selectedChannelHandler: nil
+          ))
+          
+          self.filteredDecks = channelDecks
+        }
         
         self.hideActivityIndicator()
         self.tableView.reloadData()
@@ -183,7 +206,6 @@ extension ChannelsViewController: UITableViewDataSource {
 
 protocol ChannelsViewControllerDelegate: class {
   func selectedChannel(deck: Item)
-  func searchOnTyping(term: String)
 }
 
 extension ChannelsViewController: UITableViewDelegate {

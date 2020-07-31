@@ -381,6 +381,14 @@ class ShareViewController: SLComposeServiceViewController {
     }
   }
   
+  func handleSelectedChannel(item: Item) {
+    selectedChannel = item
+    if #available(iOS 13, *) {} else {
+      // this is causing the extension to run OOM on iOS 13
+      self.placeholder = "Write to \(item.title!)"
+    }
+  }
+  
   func getChannelItems(forTeamId: String?) -> [Section]? {
     var channelDecks = [Section]()
     var currentChannel = store.getCurrentChannel() as NSDictionary?
@@ -393,25 +401,29 @@ class ShareViewController: SLComposeServiceViewController {
     }
     
     let channelsInTeamBySections = store.getChannelsBySections(forTeamId, excludeArchived: true) as NSDictionary
-    channelDecks.append(buildChannelSection(
+    
+    channelDecks.append(Section.buildChannelSection(
       channels: channelsInTeamBySections.object(forKey: "public") as! NSArray,
       currentChannelId: selectedChannel?.id ?? currentChannel?.object(forKey: "id") as! String,
       key: "public",
-      title: "Public Channels"
+      title: "Public Channels",
+      selectedChannelHandler: handleSelectedChannel
     ))
 
-    channelDecks.append(buildChannelSection(
+    channelDecks.append(Section.buildChannelSection(
       channels: channelsInTeamBySections.object(forKey: "private") as! NSArray,
       currentChannelId: selectedChannel?.id ?? currentChannel?.object(forKey: "id") as! String,
       key: "private",
-      title: "Private Channels"
+      title: "Private Channels",
+      selectedChannelHandler: handleSelectedChannel
     ))
 
-    channelDecks.append(buildChannelSection(
+    channelDecks.append(Section.buildChannelSection(
       channels: channelsInTeamBySections.object(forKey: "direct") as! NSArray,
       currentChannelId: selectedChannel?.id ?? currentChannel?.object(forKey: "id") as! String,
       key: "direct",
-      title: "Direct Channels"
+      title: "Direct Channels",
+      selectedChannelHandler: handleSelectedChannel
     ))
     
     return channelDecks

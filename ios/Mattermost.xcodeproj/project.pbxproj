@@ -453,13 +453,13 @@
 				7F240A1D220D3A2300637665 /* MainInterface.storyboard */,
 				7F151D42221B07F700FAD8F3 /* MattermostShare-Bridging-Header.h */,
 				9AB32F8924B6BEAF00C553EC /* ChannelService.swift */,
-				7F240ADA220E089300637665 /* Item.swift */,
 				7FABE0092212650600D0F595 /* ChannelsViewController.swift */,
 				7F240A1B220D3A2300637665 /* ShareViewController.swift */,
 				7F240ADC220E094A00637665 /* TeamsViewController.swift */,
 				7F72F2ED2211220500F98FFF /* GenericPreview.xib */,
 				7F72F2EF221123E200F98FFF /* GenericPreview.swift */,
 				7FABDFC12211A39000D0F595 /* Section.swift */,
+				7F240ADA220E089300637665 /* Item.swift */,
 			);
 			path = MattermostShare;
 			sourceTree = "<group>";

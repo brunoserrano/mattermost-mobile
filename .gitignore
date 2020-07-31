@@ -91,6 +91,8 @@ coverage
 
 # Bundle artifact
 *.jsbundle
+vendor/bundle/
+.bundle/config
 
 #editor-settings
 .vscode
