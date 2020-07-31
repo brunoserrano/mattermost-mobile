@@ -18,7 +18,19 @@ class ChannelsViewController: UIViewController {
   var navbarTitle: String? = "Channels"
   var channelDecks = [Section]()
   var filteredDecks: [Section]?
+  var foundItems = Section()
+  var teamId: String?
+  private var sessionToken: String?
+  private var serverURL: String?
+  private var store = StoreManager.shared() as StoreManager
   weak var delegate: ChannelsViewControllerDelegate?
+
+  var footerFrame = UIView()
+  var footerLabel = UILabel()
+  var indicator = UIActivityIndicatorView()
+  var dispatchGroup = DispatchGroup()
+  var indicatorShown = false
+  private var channelService = ChannelService()
   
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
@@ -41,6 +53,12 @@ class ChannelsViewController: UIViewController {
     title = navbarTitle
     configureSearchBar()
     view.addSubview(tableView)
+    
+    sessionToken = store.getToken()
+    serverURL = store.getServerUrl()
+    
+    channelService.serverURL = serverURL
+    channelService.sessionToken = sessionToken
   }
  
   func configureSearchBar() {
@@ -65,6 +83,83 @@ class ChannelsViewController: UIViewController {
     } else {
       // For iOS 10 and earlier, place the search controller's search bar in the table view's header.
       tableView.tableHeaderView = searchController.searchBar
+    }
+  }
+  
+  func showActivityIndicator() {
+    footerFrame = UIView(frame: CGRect(x: 0, y: view.frame.midY - 25, width: 250, height: 50))
+    footerFrame.center.x = view.center.x
+
+    footerLabel = UILabel(frame: CGRect(x: 0, y: 0, width: 200, height: 50))
+    footerLabel.textColor = UIColor.systemGray
+    footerLabel.text = "Searching for Channels..."
+
+    indicator.frame = CGRect(x: 200, y: 0, width: 50, height: 50)
+    indicator.startAnimating()
+
+    footerFrame.addSubview(footerLabel)
+    footerFrame.addSubview(indicator)
+
+    tableView.tableFooterView = footerFrame
+    indicatorShown = true
+  }
+
+  func hideActivityIndicator() {
+    tableView.tableFooterView = nil
+    indicatorShown = false
+    self.tableView.reloadData()
+  }
+
+  func leaveDispatchGroup() {
+    dispatchGroup.leave()
+  }
+  
+  func searchChannels(forTeamId: String, term: String) {
+    dispatchGroup.enter()
+    showActivityIndicator()
+    
+    channelService.searchChannels(on: forTeamId, withTerm: term) { channels in
+      self.dispatchGroup.notify(queue: .main) {
+        let channelsDictionary = (channels as! [NSDictionary]).reduce(into: [String: NSDictionary]()) {
+          $0[$1.object(forKey: "id") as! String] = $1
+        }
+        
+        if let channelsInTeamBySections = self.store.getSectionsWithChannels(channelsDictionary, excludeArchived: true, forTeamId: self.teamId) {
+
+          var channelDecks = [Section]()
+          
+          channelDecks.append(Section.buildChannelSection(
+            channels: channelsInTeamBySections["public"] as? NSArray ?? NSArray(),
+            currentChannelId: "",
+            key: "public",
+            title: "Public Channels",
+            selectedChannelHandler: nil
+          ))
+
+          channelDecks.append(Section.buildChannelSection(
+            channels: channelsInTeamBySections["private"] as? NSArray ?? NSArray(),
+            currentChannelId: "",
+            key: "private",
+            title: "Private Channels",
+            selectedChannelHandler: nil
+          ))
+
+          channelDecks.append(Section.buildChannelSection(
+            channels: channelsInTeamBySections["direct"] as? NSArray ?? NSArray(),
+            currentChannelId: "",
+            key: "direct",
+            title: "Direct Channels",
+            selectedChannelHandler: nil
+          ))
+          
+          self.filteredDecks = channelDecks
+        }
+        
+        self.hideActivityIndicator()
+        self.tableView.reloadData()
+      }
+      
+      self.dispatchGroup.leave()
     }
   }
   
@@ -125,11 +220,15 @@ extension ChannelsViewController: UITableViewDelegate {
 extension ChannelsViewController: UISearchResultsUpdating {
   func updateSearchResults(for searchController: UISearchController) {
     if let searchText = searchController.searchBar.text, !searchText.isEmpty {
-      filteredDecks = channelDecks.map {section in
+      self.filteredDecks = self.channelDecks.map {section in
         let s = section.copy() as! Section
         let items = section.items.filter{($0.title?.lowercased().contains(searchText.lowercased()))!}
         s.items = items
         return s
+      }
+      
+      if let teamId = self.teamId {
+        searchChannels(forTeamId: teamId, term: searchText)
       }
     } else {
       filteredDecks = channelDecks

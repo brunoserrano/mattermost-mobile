@@ -57,6 +57,7 @@
 		7FF2AF8B2086483E00FFBDF4 /* KeyShareConsumer.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7FF2AF8A2086483E00FFBDF4 /* KeyShareConsumer.storyboard */; };
 		84E3264B229834C30055068A /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E325FF229834C30055068A /* Config.swift */; };
 		9358B95F95184EE0A4DCE629 /* OpenSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D4B1B363C2414DA19C1AC521 /* OpenSans-Bold.ttf */; };
+		9AB32F8A24B6BEAF00C553EC /* ChannelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB32F8924B6BEAF00C553EC /* ChannelService.swift */; };
 		A08D512E7ADC40CCAD055A9E /* OpenSans-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = BC977883E2624E05975CA65B /* OpenSans-Regular.ttf */; };
 		AA9605CFDA8E4E7CB8A041BF /* Roboto-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C5BD64DE829E455A997DCAD5 /* Roboto-Regular.ttf */; };
 		ABF5F93B1D0A47BAACEAC376 /* Roboto-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 34B20A903038487E8D7DEA1E /* Roboto-Light.ttf */; };
@@ -245,6 +246,7 @@
 		8A5992A3325D4F8BB21AAD9B /* AntDesign.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = AntDesign.ttf; path = "../node_modules/react-native-vector-icons/Fonts/AntDesign.ttf"; sourceTree = "<group>"; };
 		8DEEFB3ED6175724A2653247 /* libPods-Mattermost.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Mattermost.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F0B22D2C9924FAFA7FB681C /* Roboto-LightItalic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Roboto-LightItalic.ttf"; path = "../assets/fonts/Roboto-LightItalic.ttf"; sourceTree = "<group>"; };
+		9AB32F8924B6BEAF00C553EC /* ChannelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChannelService.swift; sourceTree = "<group>"; };
 		A734E00E7E184582A877F2B3 /* Roboto-Thin.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "Roboto-Thin.ttf"; path = "../assets/fonts/Roboto-Thin.ttf"; sourceTree = "<group>"; };
 		AD2C51EF151E455D8758FE3F /* FontAwesome5_Regular.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = FontAwesome5_Regular.ttf; path = "../node_modules/react-native-vector-icons/Fonts/FontAwesome5_Regular.ttf"; sourceTree = "<group>"; };
 		AF5978138E514607B5793F37 /* Entypo.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = Entypo.ttf; path = "../node_modules/react-native-vector-icons/Fonts/Entypo.ttf"; sourceTree = "<group>"; };
@@ -450,13 +452,14 @@
 				7F240A27220D3A7E00637665 /* MattermostShare.entitlements */,
 				7F240A1D220D3A2300637665 /* MainInterface.storyboard */,
 				7F151D42221B07F700FAD8F3 /* MattermostShare-Bridging-Header.h */,
-				7F240ADA220E089300637665 /* Item.swift */,
+				9AB32F8924B6BEAF00C553EC /* ChannelService.swift */,
 				7FABE0092212650600D0F595 /* ChannelsViewController.swift */,
 				7F240A1B220D3A2300637665 /* ShareViewController.swift */,
 				7F240ADC220E094A00637665 /* TeamsViewController.swift */,
 				7F72F2ED2211220500F98FFF /* GenericPreview.xib */,
 				7F72F2EF221123E200F98FFF /* GenericPreview.swift */,
 				7FABDFC12211A39000D0F595 /* Section.swift */,
+				7F240ADA220E089300637665 /* Item.swift */,
 			);
 			path = MattermostShare;
 			sourceTree = "<group>";
@@ -868,6 +871,7 @@
 				7F240AD0220D4A6100637665 /* KeyChainDataSource.mm in Sources */,
 				7F72F2F0221123E200F98FFF /* GenericPreview.swift in Sources */,
 				7F240ADB220E089300637665 /* Item.swift in Sources */,
+				9AB32F8A24B6BEAF00C553EC /* ChannelService.swift in Sources */,
 				7F240A1C220D3A2300637665 /* ShareViewController.swift in Sources */,
 				7FABDFC22211A39000D0F595 /* Section.swift in Sources */,
 				84E3264B229834C30055068A /* Config.swift in Sources */,

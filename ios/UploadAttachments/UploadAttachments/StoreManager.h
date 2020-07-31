@@ -10,6 +10,7 @@
 +(instancetype)shared;
 -(NSDictionary *)getChannelById:(NSString *)channelId;
 -(NSDictionary *)getChannelsBySections:(NSString *)forTeamId excludeArchived:(BOOL)excludeArchived;
+-(NSDictionary *)getSectionsWithChannels:(NSDictionary *)channels excludeArchived:(BOOL)excludeArchived forTeamId:(NSString *)forTeamId;
 -(NSDictionary *)getCurrentChannel;
 -(NSString *)getCurrentChannelId;
 -(NSString *)getCurrentTeamId;

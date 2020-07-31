@@ -22,6 +22,7 @@ class ShareViewController: SLComposeServiceViewController {
   private var publicURL: String?
   private var maxPostAlertShown: Bool = false
   private var tempContainerURL: URL? = UploadSessionManager.shared.tempContainerURL() as URL?
+  private var channelService = ChannelService()
   
   fileprivate var selectedChannel: Item?
   fileprivate var selectedTeam: Item?
@@ -31,12 +32,15 @@ class ShareViewController: SLComposeServiceViewController {
   private var maxMessageSize: Int = 0
   
   required init?(coder aDecoder: NSCoder) {
-      super.init(coder: aDecoder)
-  
-      entities = store.getEntities(true) as [AnyHashable:Any]?
-      sessionToken = store.getToken()
-      serverURL = store.getServerUrl()
-      maxMessageSize = Int(store.getMaxPostSize())
+    super.init(coder: aDecoder)
+
+    entities = store.getEntities(true) as [AnyHashable:Any]?
+    sessionToken = store.getToken()
+    serverURL = store.getServerUrl()
+    maxMessageSize = Int(store.getMaxPostSize())
+    
+    channelService.serverURL = serverURL
+    channelService.sessionToken = sessionToken
   }
 
   // MARK: - Lifecycle methods
@@ -90,7 +94,7 @@ class ShareViewController: SLComposeServiceViewController {
   }
 
   func loadData() {
-    if sessionToken == nil || serverURL == nil {
+    if !channelService.isSessionValid {
       showErrorMessage(title: "", message: "Authentication required: Please first login using the app.", VC: self)
     } else if store.getCurrentTeamId() == "" {
       showErrorMessage(title: "", message: "You must belong to a team before you can share files.", VC: self)
@@ -129,8 +133,7 @@ class ShareViewController: SLComposeServiceViewController {
       }
     }
 
-    return serverURL != nil &&
-      sessionToken != nil &&
+    return channelService.isSessionValid &&
       attachmentsCount() == attachments.count &&
       selectedTeam != nil &&
       selectedChannel != nil
@@ -149,6 +152,9 @@ class ShareViewController: SLComposeServiceViewController {
       self.message = contentText
     }
 
+    let sessionToken = store.getToken()
+    let serverURL = store.getServerUrl()
+    
     UploadManager.shared.uploadFiles(baseURL: serverURL!, token: sessionToken!, channelId: selectedChannel!.id!, message: message, attachments: attachments, callback: {
       // Inform the host that we're done, so it un-blocks its UI. Note: Alternatively you could call super's -didSelectPost, which will similarly complete the extension context.
       self.extensionContext!.completeRequest(returningItems: [], completionHandler: nil)
@@ -199,6 +205,7 @@ class ShareViewController: SLComposeServiceViewController {
       channels.tapHandler = {
         self.channelsVC.channelDecks = channelDecks!
         self.channelsVC.navbarTitle = self.selectedTeam?.title
+        self.channelsVC.teamId = self.selectedTeam?.id
         self.channelsVC.delegate = self
         self.pushConfigurationViewController(self.channelsVC)
       }
@@ -352,50 +359,33 @@ class ShareViewController: SLComposeServiceViewController {
     
     // If currentChannel is nil it means we don't have the channels for this team
     if (currentChannel == nil) {
-      let urlString = "\(serverURL!)/api/v4/users/me/teams/\(forTeamId)/channels"
-      let url = URL(string: urlString)
-      var request = URLRequest(url: url!)
-      let auth = "Bearer \(sessionToken!)" as String
-      request.setValue(auth, forHTTPHeaderField: "Authorization")
-      
-      let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-        guard let dataResponse = data,
-          error == nil else {
-            print(error?.localizedDescription ?? "Response Error")
-            return
-            
+      channelService.getTeamChannels(forTeamId: forTeamId) { channels in
+        let ent = self.store.getEntities(false)! as NSDictionary
+        let mutableEntities = ent.mutableCopy() as! NSMutableDictionary
+        let entitiesChannels = NSDictionary(dictionary: mutableEntities.object(forKey: "channels") as! NSMutableDictionary)
+          .object(forKey: "channels") as! NSMutableDictionary
+        
+        for item in channels {
+          let channel = item as! NSDictionary
+          entitiesChannels.setValue(channel, forKey: channel.object(forKey: "id") as! String)
         }
         
-        do{
-          //here dataResponse received from a network request
-          let jsonArray = try JSONSerialization.jsonObject(with: dataResponse, options: []) as! NSArray
-          let channels = jsonArray.filter {element in
-            let channel = element as! NSDictionary
-            let type = channel.object(forKey: "type") as! String
-            return type == "O" || type == "P"
-          }
-          let ent = self.store.getEntities(false)! as NSDictionary
-          let mutableEntities = ent.mutableCopy() as! NSMutableDictionary
-          let entitiesChannels = NSDictionary(dictionary: mutableEntities.object(forKey: "channels") as! NSMutableDictionary)
-            .object(forKey: "channels") as! NSMutableDictionary
-          
-          for item in channels {
-            let channel = item as! NSDictionary
-            entitiesChannels.setValue(channel, forKey: channel.object(forKey: "id") as! String)
-          }
-          
-          if let entitiesData: NSData = try? JSONSerialization.data(withJSONObject: ent, options: JSONSerialization.WritingOptions.prettyPrinted) as NSData {
-            let jsonString = String(data: entitiesData as Data, encoding: String.Encoding.utf8)! as String
-            self.store.updateEntities(jsonString)
-            self.store.getEntities(true)
-            self.reloadConfigurationItems()
-            self.view.setNeedsDisplay()
-          }
-        } catch let parsingError {
-          print("Error", parsingError)
+        if let entitiesData: NSData = try? JSONSerialization.data(withJSONObject: ent, options: JSONSerialization.WritingOptions.prettyPrinted) as NSData {
+          let jsonString = String(data: entitiesData as Data, encoding: String.Encoding.utf8)! as String
+          self.store.updateEntities(jsonString)
+          self.store.getEntities(true)
+          self.reloadConfigurationItems()
+          self.view.setNeedsDisplay()
         }
       }
-      task.resume()
+    }
+  }
+  
+  func handleSelectedChannel(item: Item) {
+    selectedChannel = item
+    if #available(iOS 13, *) {} else {
+      // this is causing the extension to run OOM on iOS 13
+      self.placeholder = "Write to \(item.title!)"
     }
   }
   
@@ -411,25 +401,29 @@ class ShareViewController: SLComposeServiceViewController {
     }
     
     let channelsInTeamBySections = store.getChannelsBySections(forTeamId, excludeArchived: true) as NSDictionary
-    channelDecks.append(buildChannelSection(
+    
+    channelDecks.append(Section.buildChannelSection(
       channels: channelsInTeamBySections.object(forKey: "public") as! NSArray,
       currentChannelId: selectedChannel?.id ?? currentChannel?.object(forKey: "id") as! String,
       key: "public",
-      title: "Public Channels"
+      title: "Public Channels",
+      selectedChannelHandler: handleSelectedChannel
     ))
 
-    channelDecks.append(buildChannelSection(
+    channelDecks.append(Section.buildChannelSection(
       channels: channelsInTeamBySections.object(forKey: "private") as! NSArray,
       currentChannelId: selectedChannel?.id ?? currentChannel?.object(forKey: "id") as! String,
       key: "private",
-      title: "Private Channels"
+      title: "Private Channels",
+      selectedChannelHandler: handleSelectedChannel
     ))
 
-    channelDecks.append(buildChannelSection(
+    channelDecks.append(Section.buildChannelSection(
       channels: channelsInTeamBySections.object(forKey: "direct") as! NSArray,
       currentChannelId: selectedChannel?.id ?? currentChannel?.object(forKey: "id") as! String,
       key: "direct",
-      title: "Direct Channels"
+      title: "Direct Channels",
+      selectedChannelHandler: handleSelectedChannel
     ))
     
     return channelDecks
@@ -543,5 +537,9 @@ extension ShareViewController: ChannelsViewControllerDelegate {
     selectedChannel = deck
     reloadConfigurationItems()
     popConfigurationViewController()
+  }
+  
+  func searchOnTyping(term: String) {
+    
   }
 }

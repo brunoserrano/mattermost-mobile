@@ -3,6 +3,7 @@
 
 import {getRedirectChannelNameForTeam, getChannelsNameMapInTeam} from '@mm-redux/selectors/entities/channels';
 import {getChannelByName} from '@mm-redux/utils/channel_utils';
+import {createDirectChannel, searchChannels} from '@mm-redux/actions/channels'
 
 import {loadChannelsForTeam} from 'app/actions/views/channel';
 import {ViewTypes} from 'app/constants';
@@ -24,4 +25,18 @@ export function extensionSelectTeamId(teamId) {
         type: ViewTypes.EXTENSION_SELECTED_TEAM_ID,
         data: teamId,
     };
+}
+
+export function searchChannelsExtension(teamId, text) {
+  return async (dispatch) => {
+    return await dispatch(searchChannels(teamId, text, false))
+  }
+}
+
+export function createDC(otherUserId) {
+    return async (dispatch, getState) => {
+        const state = getState();
+        const {currentUserId} = state.entities.users;
+        return await dispatch(createDirectChannel(currentUserId, otherUserId))
+    }
 }

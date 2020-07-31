@@ -32,62 +32,67 @@
   return channel;
 }
 
+- (NSDictionary *)getSectionsWithChannels:(NSDictionary *)channels excludeArchived:(BOOL)excludeArchived forTeamId:(NSString *)forTeamId {
+    NSString *currentUserId = [self getCurrentUserId];
+    NSString *currentChannelId = [self getCurrentChannelId];
+    NSDictionary *preferences = [self getMyPreferences];
+    NSMutableDictionary *channelsInTeam = [[NSMutableDictionary alloc] init];
+    NSMutableArray *publicChannels = [[NSMutableArray alloc] init];
+    NSMutableArray *privateChannels = [[NSMutableArray alloc] init];
+    NSMutableArray *directChannels = [[NSMutableArray alloc] init];
+    
+    for (NSString * key in channels) {
+        NSMutableDictionary *channel = [[channels objectForKey:key] mutableCopy];
+        
+        NSNumber *deleteAt = [channel objectForKey:@"delete_at"];
+        if (excludeArchived && ![deleteAt isEqualToNumber:@0]) {
+            continue;
+        }
+        
+        NSString *team_id = [channel objectForKey:@"team_id"];
+        NSString *channelType = [channel objectForKey:@"type"];
+        BOOL isDM = [channelType isEqualToString:@"D"];
+        BOOL isGM = [channelType isEqualToString:@"G"];
+        BOOL isPublic = [channelType isEqualToString:@"O"];
+        BOOL isPrivate = [channelType isEqualToString:@"P"];
+        if ([team_id isEqualToString:forTeamId] || isDM || isGM) {
+            if (isPublic) {
+                // public channel
+                [publicChannels addObject:channel];
+            } else if (isPrivate) {
+                // private channel
+                [privateChannels addObject:channel];
+            } else if (isDM) {
+                // direct message
+                NSString *otherUserId = [self getOtherUserIdFromChannel:currentUserId withChannelName:[channel objectForKey:@"name"]];
+                NSDictionary *otherUser = [self getUserById:otherUserId];
+                NSNumber *delete_at = [otherUser objectForKey:@"delete_at"] ?: 0;
+                if (otherUser && [self isDirectChannelVisible:preferences otherUserId:otherUserId] && ![self isAutoClosed:preferences channel:channel currentChannelId:currentChannelId channelArchivedAt:delete_at]) {
+                    [channel setObject:[self displayUserName:otherUser] forKey:@"display_name"];
+                    [directChannels addObject:channel];
+                }
+            } else {
+                NSNumber *delete_at = [channel objectForKey:@"delete_at"] ?: 0;
+                if ([self isGroupChannelVisible:preferences channelId:key] && ![self isAutoClosed:preferences channel:channel currentChannelId:currentChannelId channelArchivedAt:delete_at]) {
+                    [channel setObject:[self completeDirectGroupInfo:key] forKey:@"display_name"];
+                    [directChannels addObject:channel];
+                }
+            }
+        }
+    }
+    
+    [channelsInTeam setObject:[self sortDictArrayByDisplayName:publicChannels] forKey:@"public"];
+    [channelsInTeam setObject:[self sortDictArrayByDisplayName:privateChannels] forKey:@"private"];
+    [channelsInTeam setObject:[self sortDictArrayByDisplayName:directChannels] forKey:@"direct"];
+    
+    return channelsInTeam;
+}
+
 -(NSDictionary *)getChannelsBySections:(NSString *)forTeamId excludeArchived:(BOOL)excludeArchived {
   NSDictionary *channelsStore = [self.entities objectForKey:@"channels"];
-  NSString *currentUserId = [self getCurrentUserId];
-  NSString *currentChannelId = [self getCurrentChannelId];
-  NSDictionary *preferences = [self getMyPreferences];
   NSDictionary *channels = [channelsStore objectForKey:@"channels"];
-  NSMutableDictionary *channelsInTeam = [[NSMutableDictionary alloc] init];
-  NSMutableArray *publicChannels = [[NSMutableArray alloc] init];
-  NSMutableArray *privateChannels = [[NSMutableArray alloc] init];
-  NSMutableArray *directChannels = [[NSMutableArray alloc] init];
-  
-  for (NSString * key in channels) {
-    NSMutableDictionary *channel = [[channels objectForKey:key] mutableCopy];
-
-    NSNumber *deleteAt = [channel objectForKey:@"delete_at"];
-    if (excludeArchived && ![deleteAt isEqualToNumber:@0]) {
-      continue;
-    }
-
-    NSString *team_id = [channel objectForKey:@"team_id"];
-    NSString *channelType = [channel objectForKey:@"type"];
-    BOOL isDM = [channelType isEqualToString:@"D"];
-    BOOL isGM = [channelType isEqualToString:@"G"];
-    BOOL isPublic = [channelType isEqualToString:@"O"];
-    BOOL isPrivate = [channelType isEqualToString:@"P"];
-    if ([team_id isEqualToString:forTeamId] || isDM || isGM) {
-      if (isPublic) {
-        // public channel
-        [publicChannels addObject:channel];
-      } else if (isPrivate) {
-        // private channel
-        [privateChannels addObject:channel];
-      } else if (isDM) {
-        // direct message
-        NSString *otherUserId = [self getOtherUserIdFromChannel:currentUserId withChannelName:[channel objectForKey:@"name"]];
-        NSDictionary *otherUser = [self getUserById:otherUserId];
-        NSNumber *delete_at = [otherUser objectForKey:@"delete_at"] ?: 0;
-          if (otherUser && [self isDirectChannelVisible:preferences otherUserId:otherUserId] && ![self isAutoClosed:preferences channel:channel currentChannelId:currentChannelId channelArchivedAt:delete_at]) {
-          [channel setObject:[self displayUserName:otherUser] forKey:@"display_name"];
-          [directChannels addObject:channel];
-        }
-      } else {
-        NSNumber *delete_at = [channel objectForKey:@"delete_at"] ?: 0;
-        if ([self isGroupChannelVisible:preferences channelId:key] && ![self isAutoClosed:preferences channel:channel currentChannelId:currentChannelId channelArchivedAt:delete_at]) {
-            [channel setObject:[self completeDirectGroupInfo:key] forKey:@"display_name"];
-            [directChannels addObject:channel];
-        }
-      }
-    }
-  }
-  
-  [channelsInTeam setObject:[self sortDictArrayByDisplayName:publicChannels] forKey:@"public"];
-  [channelsInTeam setObject:[self sortDictArrayByDisplayName:privateChannels] forKey:@"private"];
-  [channelsInTeam setObject:[self sortDictArrayByDisplayName:directChannels] forKey:@"direct"];
-  
-  return channelsInTeam;
+    
+  return [self getSectionsWithChannels:channels excludeArchived:excludeArchived forTeamId:forTeamId];
 }
 
 -(NSDictionary *)getCurrentChannel {
