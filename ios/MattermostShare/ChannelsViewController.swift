@@ -114,52 +114,86 @@ class ChannelsViewController: UIViewController {
     dispatchGroup.leave()
   }
   
+  var foundChannels : [String: NSDictionary]?
+  var foundUsers : [String: NSDictionary]?
+  
+  func finishSearch() {
+    self.dispatchGroup.notify(queue: .main) {
+      
+      var allFoundChannels = [String: NSDictionary]()
+      
+      if let foundUsers = self.foundUsers {
+        for (k, v) in foundUsers {
+          allFoundChannels[k] = v
+        }
+      }
+      
+      if let foundChannels = self.foundChannels {
+        for (k, v) in foundChannels {
+          allFoundChannels[k] = v
+        }
+      }
+      
+      if let channelsInTeamBySections = self.store.getSectionsWithChannels(allFoundChannels, excludeArchived: true, forTeamId: self.teamId) {
+
+        var channelDecks = [Section]()
+        
+        channelDecks.append(Section.buildChannelSection(
+          channels: channelsInTeamBySections["public"] as? NSArray ?? NSArray(),
+          currentChannelId: "",
+          key: "public",
+          title: "Public Channels",
+          selectedChannelHandler: nil
+        ))
+
+        channelDecks.append(Section.buildChannelSection(
+          channels: channelsInTeamBySections["private"] as? NSArray ?? NSArray(),
+          currentChannelId: "",
+          key: "private",
+          title: "Private Channels",
+          selectedChannelHandler: nil
+        ))
+
+        channelDecks.append(Section.buildChannelSection(
+          channels: channelsInTeamBySections["direct"] as? NSArray ?? NSArray(),
+          currentChannelId: "",
+          key: "direct",
+          title: "Direct Channels",
+          selectedChannelHandler: nil
+        ))
+        
+        self.filteredDecks = channelDecks
+      }
+      
+      self.hideActivityIndicator()
+      self.tableView.reloadData()
+    }
+    
+    self.dispatchGroup.leave()
+  }
+  
   func searchChannels(forTeamId: String, term: String) {
     dispatchGroup.enter()
     showActivityIndicator()
     
+    channelService.searchUsers(withTerm: term) { users in
+      self.foundUsers = (users as! [NSDictionary]).reduce(into: [String: NSDictionary](), { (a0, a1) in
+        a0[a1.object(forKey: "id") as! String] = [
+          "id" : a1.object(forKey: "id")!,
+          "display_name": "\(a1.object(forKey: "first_name") ?? "") \(a1.object(forKey: "last_name") ?? "")",
+          "type": "D",
+          "delete_at": a1.object(forKey: "delete_at") ?? 0,
+          "name": a1.object(forKey: "username") ?? ""
+        ]
+      })
+      self.finishSearch()
+    }
+    
     channelService.searchChannels(on: forTeamId, withTerm: term) { channels in
-      self.dispatchGroup.notify(queue: .main) {
-        let channelsDictionary = (channels as! [NSDictionary]).reduce(into: [String: NSDictionary]()) {
-          $0[$1.object(forKey: "id") as! String] = $1
-        }
-        
-        if let channelsInTeamBySections = self.store.getSectionsWithChannels(channelsDictionary, excludeArchived: true, forTeamId: self.teamId) {
-
-          var channelDecks = [Section]()
-          
-          channelDecks.append(Section.buildChannelSection(
-            channels: channelsInTeamBySections["public"] as? NSArray ?? NSArray(),
-            currentChannelId: "",
-            key: "public",
-            title: "Public Channels",
-            selectedChannelHandler: nil
-          ))
-
-          channelDecks.append(Section.buildChannelSection(
-            channels: channelsInTeamBySections["private"] as? NSArray ?? NSArray(),
-            currentChannelId: "",
-            key: "private",
-            title: "Private Channels",
-            selectedChannelHandler: nil
-          ))
-
-          channelDecks.append(Section.buildChannelSection(
-            channels: channelsInTeamBySections["direct"] as? NSArray ?? NSArray(),
-            currentChannelId: "",
-            key: "direct",
-            title: "Direct Channels",
-            selectedChannelHandler: nil
-          ))
-          
-          self.filteredDecks = channelDecks
-        }
-        
-        self.hideActivityIndicator()
-        self.tableView.reloadData()
+      self.foundChannels = (channels as! [NSDictionary]).reduce(into: [String: NSDictionary]()) {
+        $0[$1.object(forKey: "id") as! String] = $1
       }
-      
-      self.dispatchGroup.leave()
+      self.finishSearch()
     }
   }
   

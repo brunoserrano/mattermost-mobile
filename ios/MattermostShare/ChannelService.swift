@@ -70,4 +70,45 @@ class ChannelService: NSObject {
     }
     task.resume()
   }
+  
+  func searchUsers(withTerm term: String, completionHandler: @escaping ([NSArray.Element]) -> Void) {
+    let json: [String: Any] = ["term": term]
+    let jsonData = try? JSONSerialization.data(withJSONObject: json)
+    
+    let urlString = "\(serverURL!)/api/v4/users/search"
+    let url = URL(string: urlString)
+    var request = URLRequest(url: url!)
+    request.httpMethod = "POST"
+    request.httpBody = jsonData
+    
+    let auth = "Bearer \(sessionToken!)" as String
+    request.setValue(auth, forHTTPHeaderField: "Authorization")
+    request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.addValue("application/json", forHTTPHeaderField: "Accept")
+    
+    requestUsers(with: request, completionHandler: completionHandler)
+  }
+  
+  func requestUsers(with request: URLRequest, completionHandler: @escaping ([NSArray.Element]) -> Void) {
+    let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+      guard let dataResponse = data,
+        error == nil else {
+          print(error?.localizedDescription ?? "Response Error")
+          return
+      }
+      
+      do {
+        let jsonArray = try JSONSerialization.jsonObject(with: dataResponse, options: []) as! NSArray
+        let users = jsonArray.filter {element in
+          return true
+        }
+        
+        completionHandler(users)
+      }
+      catch let parsingError {
+        print("Error", parsingError)
+      }
+    }
+    task.resume()
+  }
 }

@@ -64,11 +64,17 @@
                 [privateChannels addObject:channel];
             } else if (isDM) {
                 // direct message
-                NSString *otherUserId = [self getOtherUserIdFromChannel:currentUserId withChannelName:[channel objectForKey:@"name"]];
-                NSDictionary *otherUser = [self getUserById:otherUserId];
-                NSNumber *delete_at = [otherUser objectForKey:@"delete_at"] ?: 0;
-                if (otherUser && [self isDirectChannelVisible:preferences otherUserId:otherUserId] && ![self isAutoClosed:preferences channel:channel currentChannelId:currentChannelId channelArchivedAt:delete_at]) {
-                    [channel setObject:[self displayUserName:otherUser] forKey:@"display_name"];
+                NSArray *parts = [[channel objectForKey:@"name"] componentsSeparatedByString:@"_"];
+                if (parts.count > 1) {
+                    NSString *otherUserId = [self getOtherUserIdFromChannel:currentUserId withChannelName:[channel objectForKey:@"name"]];
+                    NSDictionary *otherUser = [self getUserById:otherUserId];
+                    NSNumber *delete_at = [otherUser objectForKey:@"delete_at"] ?: 0;
+                    if (otherUser && [self isDirectChannelVisible:preferences otherUserId:otherUserId] && ![self isAutoClosed:preferences channel:channel currentChannelId:currentChannelId channelArchivedAt:delete_at]) {
+                        [channel setObject:[self displayUserName:otherUser] forKey:@"display_name"];
+                        [directChannels addObject:channel];
+                    }
+                }
+                else {
                     [directChannels addObject:channel];
                 }
             } else {
